@@ -11,6 +11,11 @@ import { IUser } from '../types/user.interface';
 import mongoose from 'mongoose';
 export const signup = asyncHandler(
   async (req: SignupRequest, res: Response, next: NextFunction) => {
+    const { name, email, password } = req.body;
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return next(new ApiError('Email already in use!', 400));
+    }
     const user = await User.create({
       name: req.body.name,
       email: req.body.email,
