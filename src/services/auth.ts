@@ -5,6 +5,7 @@ import asyncHandler from 'express-async-handler';
 import ApiError from '../utils/apiError';
 import createToken from '../utils/createToken';
 import User from '../models/usersModel';
+import { IUser } from '../types/user.interface';
 import { SignupRequest } from '../types/signup.interface';
 import { loginRequest } from '../types/login.interface';
 import { Response, NextFunction } from 'express';
@@ -47,9 +48,12 @@ export const login = asyncHandler(
     if (!user || !user._id) {
       return next(new ApiError(`User doesn't exist`, 500));
     }
-    // 3) Generate token
     const token = createToken({ userId: user._id.toString() });
-
-    res.status(200).json({ data: user, token });
+    const userResponse: Partial<IUser & { password?: string }> =
+      user.toObject();
+    if (userResponse.password) {
+      delete userResponse.password;
+    }
+    res.status(200).json({ data: userResponse, token });
   }
 );
