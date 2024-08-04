@@ -56,7 +56,11 @@ const userSchema = new Schema<IUser>(
       },
     ],
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toObject: { virtuals: true },
+    toJSON: { virtuals: true },
+  }
 );
 
 userSchema.pre<IUser>('save', async function (next) {

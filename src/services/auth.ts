@@ -6,9 +6,9 @@ import ApiError from '../utils/apiError';
 import createToken from '../utils/createToken';
 import User from '../models/usersModel';
 import { SignupRequest } from '../types/signup.interface';
+import { loginRequest } from '../types/login.interface';
 import { Response, NextFunction } from 'express';
-import { IUser } from '../types/user.interface';
-import mongoose from 'mongoose';
+
 export const signup = asyncHandler(
   async (req: SignupRequest, res: Response, next: NextFunction) => {
     const { name, email, password } = req.body;
@@ -32,5 +32,24 @@ export const signup = asyncHandler(
       data: user,
       token,
     });
+  }
+);
+
+export const login = asyncHandler(
+  async (req: loginRequest, res: Response, next: NextFunction) => {
+    const user = await User.findOne({ email: req.body.email }).select(
+      '+password'
+    );
+
+    if (!user || !(await bcrypt.compare(req.body.password, user.password))) {
+      return next(new ApiError('Incorrect email or password', 401));
+    }
+    if (!user || !user._id) {
+      return next(new ApiError(`User doesn't exist`, 500));
+    }
+    // 3) Generate token
+    const token = createToken({ userId: user._id.toString() });
+
+    res.status(200).json({ data: user, token });
   }
 );
