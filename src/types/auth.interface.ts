@@ -20,4 +20,5 @@ export interface EmailOptions {
   template?: string;
   firstName?: string;
   url?: string;
+  host:string;
 }

@@ -11,7 +11,7 @@ import { ForgotPasswordRequest, loginRequest } from '../types/auth.interface';
 import { Response, NextFunction } from 'express';
 import { JwtPayload } from '../types/protection.interface';
 import { CustomRequest } from '../types/protection.interface';
-import { sendEmail } from '../utils/sendEmail';
+import sendEmail from '../utils/sendEmail';
 export const signup = asyncHandler(
   async (req: SignupRequest, res: Response, next: NextFunction) => {
     const { name, email, password } = req.body;
@@ -28,7 +28,9 @@ export const signup = asyncHandler(
     if (!user || !user._id) {
       return next(new ApiError('User creation failed', 500));
     }
-
+    const url = `${req.protocol}://${req.get('host')}/me`;
+    console.log(url);
+    await new sendEmail(user, url).sendWelcome();
     const token = createToken({ userId: user._id.toString() });
 
     res.status(201).json({
@@ -129,6 +131,9 @@ export const allowedTo = (...roles: string[]) =>
 export const forgotPassword = asyncHandler(
   async (req: ForgotPasswordRequest, res: Response, next: NextFunction) => {
     const user: IUser | null = await User.findOne({ email: req.body.email });
+    if (!req.body.email) {
+      return next(new ApiError('Please Provide Your Email!', 400));
+    }
     if (!user) {
       return next(
         new ApiError(`There is no user with that email ${req.body.email}`, 404)
@@ -148,13 +153,12 @@ export const forgotPassword = asyncHandler(
     await user.save();
 
     try {
-      await sendEmail({
-        email: user.email,
-        subject: 'Your password reset code (valid for 10 min)',
-        template: 'passwordReset',
-        firstName: user.name.split(' ')[0],
-        url: `${process.env.FRONTEND_URL}/reset-password?code=${resetCode}`,
-      });
+      let resetURL = `${req.protocol}://${req.get(
+        'host'
+      )}/resetPassword/${resetCode}`;
+      // Correctly instantiate the Email class with user and url
+      const email = new sendEmail(user, resetURL);
+      await email.sendPasswordReset();
     } catch (err) {
       user.passwordResetCode = undefined;
       user.passwordResetExpires = undefined;

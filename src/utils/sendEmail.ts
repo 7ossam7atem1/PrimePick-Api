@@ -1,52 +1,103 @@
 import nodemailer from 'nodemailer';
-import { EmailOptions } from './../types/auth.interface';
 import ejs from 'ejs';
 import juice from 'juice';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import { htmlToText } from 'html-to-text';
+
 dotenv.config();
 
-export const sendEmail = async (options: EmailOptions): Promise<void> => {
-  const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: Number(process.env.EMAIL_PORT),
-    secure: true,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-  });
+interface EmailOptions {
+  email: string;
+  name: string;
+  url: string;
+}
 
-  const templatePath = path.resolve(
-    __dirname,
-    `../views/email/${options.template}.ejs`
-  );
-  const cssPath = path.resolve(
-    __dirname,
-    `../views/email/styles/${options.template}.css`
-  );
+class SendEmail {
+  to: string;
+  firstName: string;
+  url: string;
+  from: string;
 
-  // Render HTML for email based on the EJS template
-  const html = await ejs.renderFile(templatePath, {
-    firstName: options.firstName,
-    url: options.url,
-  });
+  constructor(user: { email: string; name: string }, url: string) {
+    this.to = user.email;
+    this.firstName = user.name.split(' ')[0];
+    this.url = url;
+    this.from = `Hossam Hatem <${process.env.EMAIL_FROM}>`;
+  }
 
-  // Read the CSS file
-  const css = fs.readFileSync(cssPath, 'utf-8');
+  newTransport() {
+    if (process.env.NODE_ENV === 'production') {
+      // SendGrid
+      return nodemailer.createTransport({
+        service: 'SendGrid',
+        auth: {
+          user: process.env.SENDGRID_USERNAME,
+          pass: process.env.SENDGRID_PASSWORD,
+        },
+      });
+    } else {
+      // Mailtrap
+      return nodemailer.createTransport({
+        host: process.env.EMAIL_HOST,
+        port: Number(process.env.EMAIL_PORT), // Ensure port is a number
+        auth: {
+          user: process.env.MAILTRAP_USERNAME,
+          pass: process.env.MAILTRAP_PASSWORD,
+        },
+      });
+    }
+  }
 
-  // Inline the CSS into the HTML
-  const inlinedHtml = juice.inlineContent(html, css);
+  async send(template: string, subject: string) {
+    try {
+      // Render HTML for email based on the EJS template
+      const templatePath = path.resolve(
+        __dirname,
+        `../utils/views/email/${template}.ejs`
+      );
+      const cssPath = path.resolve(
+        __dirname,
+        `../utils/views/styles/${template}.css`
+      );
 
-  const mailOpts = {
-    from: 'PrimePick App <7ossam7atem1@gmail.com>',
-    to: options.email,
-    subject: options.subject,
-    html: inlinedHtml,
-    text: htmlToText(inlinedHtml), // Convert HTML to plain text
-  };
+      const html = await ejs.renderFile(templatePath, {
+        firstName: this.firstName,
+        url: this.url,
+      });
 
-  await transporter.sendMail(mailOpts);
-};
+      // Read the CSS file
+      const css = fs.readFileSync(cssPath, 'utf-8');
+
+      // Inline the CSS into the HTML
+      const inlinedHtml = juice(html); // Apply juice to HTML directly
+
+      const mailOpts = {
+        from: this.from,
+        to: this.to,
+        subject,
+        html: inlinedHtml,
+        text: htmlToText(inlinedHtml), // Convert HTML to plain text
+      };
+
+      await this.newTransport().sendMail(mailOpts);
+    } catch (err) {
+      console.error('Error sending email:', err);
+      throw err;
+    }
+  }
+
+  async sendWelcome() {
+    await this.send('welcome', 'Welcome to PrimePick!');
+  }
+
+  async sendPasswordReset() {
+    await this.send(
+      'passwordReset',
+      'Your Password Reset token (valid only for 10 minutes)'
+    );
+  }
+}
+
+export default SendEmail;
