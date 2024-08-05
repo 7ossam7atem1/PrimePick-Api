@@ -3,11 +3,12 @@ import {
   signupValidator,
   loginValidator,
 } from '../utils/validators/authValidator';
-import { signup, login } from '../services/auth';
+import { signup, login, forgotPassword } from '../services/auth';
 
 const router = express.Router();
 
 router.post('/signup', signupValidator, signup);
 router.post('/login', loginValidator, login);
+router.post('/forgotPassword', forgotPassword);
 
 export default router;

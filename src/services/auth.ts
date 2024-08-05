@@ -7,10 +7,11 @@ import createToken from '../utils/createToken';
 import User from '../models/usersModel';
 import { IUser } from '../types/user.interface';
 import { SignupRequest } from '../types/signup.interface';
-import { loginRequest } from '../types/login.interface';
+import { ForgotPasswordRequest, loginRequest } from '../types/auth.interface';
 import { Response, NextFunction } from 'express';
 import { JwtPayload } from '../types/protection.interface';
 import { CustomRequest } from '../types/protection.interface';
+import { sendEmail } from '../utils/sendEmail';
 export const signup = asyncHandler(
   async (req: SignupRequest, res: Response, next: NextFunction) => {
     const { name, email, password } = req.body;
@@ -124,3 +125,47 @@ export const allowedTo = (...roles: string[]) =>
       next();
     }
   );
+
+export const forgotPassword = asyncHandler(
+  async (req: ForgotPasswordRequest, res: Response, next: NextFunction) => {
+    const user: IUser | null = await User.findOne({ email: req.body.email });
+    if (!user) {
+      return next(
+        new ApiError(`There is no user with that email ${req.body.email}`, 404)
+      );
+    }
+
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedResetCode = crypto
+      .createHash('sha256')
+      .update(resetCode)
+      .digest('hex');
+
+    user.passwordResetCode = hashedResetCode;
+    user.passwordResetExpires = new Date(Date.now() + 10 * 60 * 1000);
+    user.passwordResetVerified = false;
+
+    await user.save();
+
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'Your password reset code (valid for 10 min)',
+        template: 'passwordReset',
+        firstName: user.name.split(' ')[0],
+        url: `${process.env.FRONTEND_URL}/reset-password?code=${resetCode}`,
+      });
+    } catch (err) {
+      user.passwordResetCode = undefined;
+      user.passwordResetExpires = undefined;
+      user.passwordResetVerified = undefined;
+
+      await user.save();
+      return next(new ApiError('There is an error in sending email', 500));
+    }
+
+    res
+      .status(200)
+      .json({ status: 'Success', message: 'Reset code sent to email' });
+  }
+);
