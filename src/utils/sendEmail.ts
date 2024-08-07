@@ -62,6 +62,7 @@ class SendEmail {
         `../utils/views/styles/${template}.css`
       );
 
+      // Render the EJS template with the provided data
       const html = await ejs.renderFile(templatePath, {
         firstName: this.firstName,
         url: this.url,
@@ -71,7 +72,7 @@ class SendEmail {
       const css = fs.readFileSync(cssPath, 'utf-8');
 
       // Inline the CSS into the HTML
-      const inlinedHtml = juice(html); // Apply juice to HTML directly
+      const inlinedHtml = juice.inlineContent(html, css);
 
       const mailOpts = {
         from: this.from,
