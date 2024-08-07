@@ -7,11 +7,17 @@ import createToken from '../utils/createToken';
 import User from '../models/usersModel';
 import { IUser } from '../types/user.interface';
 import { SignupRequest } from '../types/signup.interface';
-import { ForgotPasswordRequest, loginRequest } from '../types/auth.interface';
+import {
+  ForgotPasswordRequest,
+  loginRequest,
+  ResetPasswordRequest,
+} from '../types/auth.interface';
 import { Response, NextFunction } from 'express';
 import { JwtPayload } from '../types/protection.interface';
 import { CustomRequest } from '../types/protection.interface';
+import { VerifyPassResetCodeRequest } from '../types/auth.interface';
 import sendEmail from '../utils/sendEmail';
+
 export const signup = asyncHandler(
   async (req: SignupRequest, res: Response, next: NextFunction) => {
     const { name, email, password } = req.body;
@@ -156,7 +162,7 @@ export const forgotPassword = asyncHandler(
       let resetURL = `${req.protocol}://${req.get(
         'host'
       )}/resetPassword/${resetCode}`;
-      // Correctly instantiate the Email class with user and url
+
       const email = new sendEmail(user, resetURL);
       await email.sendPasswordReset();
     } catch (err) {
@@ -171,5 +177,74 @@ export const forgotPassword = asyncHandler(
     res
       .status(200)
       .json({ status: 'Success', message: 'Reset code sent to email' });
+  }
+);
+
+export const verifyPassResetCode = asyncHandler(
+  async (
+    req: VerifyPassResetCodeRequest,
+    res: Response,
+    next: NextFunction
+  ) => {
+    console.log('Request body for verifyPassResetCode:', req.body);
+
+    if (!req.body.resetCode) {
+      return next(new ApiError('Reset code is required', 400));
+    }
+
+    const hashedResetCode = crypto
+      .createHash('sha256')
+      .update(req.body.resetCode)
+      .digest('hex');
+
+    const user: IUser | null = await User.findOne({
+      passwordResetCode: hashedResetCode,
+      passwordResetExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return next(new ApiError('Reset code invalid or expired', 400));
+    }
+
+    user.passwordResetVerified = true;
+    await user.save();
+
+    res.status(200).json({
+      status: 'Success',
+      message: 'Your account has been successfully verified!',
+    });
+  }
+);
+
+export const resetPassword = asyncHandler(
+  async (req: ResetPasswordRequest, res: Response, next: NextFunction) => {
+    console.log('Request body for resetPassword:', req.body);
+
+    const user: IUser | null = await User.findOne({ email: req.body.email });
+    if (!user) {
+      return next(
+        new ApiError(`There is no user with email ${req.body.email}`, 404)
+      );
+    }
+
+    if (!user.passwordResetVerified) {
+      return next(new ApiError('Reset code not verified', 400));
+    }
+
+    user.password = req.body.newPassword;
+    user.passwordResetCode = undefined;
+    user.passwordResetExpires = undefined;
+    user.passwordResetVerified = undefined;
+
+    await user.save();
+
+    const tokenPayload = { userId: user._id.toString() };
+    const token = createToken(tokenPayload);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Your Password reset successfully!',
+      token,
+    });
   }
 );

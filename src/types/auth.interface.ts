@@ -20,5 +20,18 @@ export interface EmailOptions {
   template?: string;
   firstName?: string;
   url?: string;
-  host:string;
+  host: string;
+}
+
+export interface VerifyPassResetCodeRequest extends Request {
+  body: {
+    resetCode: string;
+  };
+}
+
+export interface ResetPasswordRequest extends Request {
+  body: {
+    email: string;
+    newPassword: string;
+  };
 }

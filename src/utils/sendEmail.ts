@@ -29,7 +29,6 @@ class SendEmail {
 
   newTransport() {
     if (process.env.NODE_ENV === 'production') {
-      // SendGrid
       return nodemailer.createTransport({
         service: 'SendGrid',
         auth: {
@@ -38,10 +37,9 @@ class SendEmail {
         },
       });
     } else {
-      // Mailtrap
       return nodemailer.createTransport({
         host: process.env.EMAIL_HOST,
-        port: Number(process.env.EMAIL_PORT), // Ensure port is a number
+        port: Number(process.env.EMAIL_PORT),
         auth: {
           user: process.env.MAILTRAP_USERNAME,
           pass: process.env.MAILTRAP_PASSWORD,
@@ -52,7 +50,6 @@ class SendEmail {
 
   async send(template: string, subject: string) {
     try {
-      // Render HTML for email based on the EJS template
       const templatePath = path.resolve(
         __dirname,
         `../utils/views/email/${template}.ejs`
@@ -62,16 +59,13 @@ class SendEmail {
         `../utils/views/styles/${template}.css`
       );
 
-      // Render the EJS template with the provided data
       const html = await ejs.renderFile(templatePath, {
         firstName: this.firstName,
         url: this.url,
       });
 
-      // Read the CSS file
       const css = fs.readFileSync(cssPath, 'utf-8');
 
-      // Inline the CSS into the HTML
       const inlinedHtml = juice.inlineContent(html, css);
 
       const mailOpts = {
@@ -79,7 +73,7 @@ class SendEmail {
         to: this.to,
         subject,
         html: inlinedHtml,
-        text: htmlToText(inlinedHtml), // Convert HTML to plain text
+        text: htmlToText(inlinedHtml),
       };
 
       await this.newTransport().sendMail(mailOpts);
