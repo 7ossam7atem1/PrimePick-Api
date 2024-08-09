@@ -1,4 +1,5 @@
 import mongoose, { Document } from 'mongoose';
+import { Request } from 'express';
 
 export interface IProduct extends Document {
   title: string;
@@ -18,4 +19,22 @@ export interface IProduct extends Document {
   ratingsQuantity: number;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export interface MulterFile {
+  buffer: Buffer;
+}
+
+
+interface CustomFiles {
+  [fieldname: string]: Express.Multer.File[]; 
+}
+
+
+interface CustomRequest extends Request {
+  files: CustomFiles;
+  body: {
+    imageCover?: string;
+    images?: string[];
+  };
 }
