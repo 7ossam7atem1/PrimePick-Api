@@ -4,6 +4,8 @@ import sharp from 'sharp';
 import { Response, NextFunction } from 'express';
 import { uploadMixOfImages } from '../middlewares/uploadImageMiddleware';
 import { CustomRequest } from '../types/protection.interface';
+import * as factory from './handlersFactory';
+import Product from '../models/productModel';
 
 export const uploadProductImages = uploadMixOfImages([
   {
@@ -54,3 +56,13 @@ export const resizeProductImages = asyncHandler(
     next();
   }
 );
+
+export const getProducts = factory.getAll(Product, 'Products');
+
+export const getProduct = factory.getOne(Product, 'reviews');
+
+export const createProduct = factory.createOne(Product);
+
+export const updateProduct = factory.updateOne(Product);
+
+export const deleteProduct = factory.deleteOne(Product);
