@@ -1,9 +1,8 @@
-import { check, CustomValidator, Meta } from 'express-validator';
+import { check, Meta } from 'express-validator';
 import validatorMiddleware from '../../middlewares/validatorMiddleware';
 import Review from '../../models/reviewModel';
 import { IUser } from '../../types/user.interface';
 import { Request } from 'express';
-import { Document } from 'mongoose';
 
 interface CustomRequest extends Request {
   user?: IUser;
@@ -22,10 +21,8 @@ export const createReviewValidator = [
     .isMongoId()
     .withMessage('Invalid Review id format')
     .custom(async (val: string, { req }: Meta) => {
-      // Cast req to CustomRequest to access custom properties
       const customReq = req as CustomRequest;
 
-      // Check if logged user created review before
       const review = await Review.findOne({
         user: customReq.user!._id,
         product: customReq.body.product,
@@ -38,22 +35,18 @@ export const createReviewValidator = [
   validatorMiddleware,
 ];
 
-// Get Review Validator
 export const getReviewValidator = [
   check('id').isMongoId().withMessage('Invalid Review id format'),
   validatorMiddleware,
 ];
 
-// Update Review Validator
 export const updateReviewValidator = [
   check('id')
     .isMongoId()
     .withMessage('Invalid Review id format')
     .custom(async (val: string, { req }: Meta) => {
-      // Cast req to CustomRequest to access custom properties
       const customReq = req as CustomRequest;
 
-      // Check review ownership before update
       const review = await Review.findById(val);
       if (!review) {
         return Promise.reject(new Error(`There is no review with id ${val}`));
@@ -68,16 +61,13 @@ export const updateReviewValidator = [
   validatorMiddleware,
 ];
 
-// Delete Review Validator
 export const deleteReviewValidator = [
   check('id')
     .isMongoId()
     .withMessage('Invalid Review id format')
     .custom(async (val: string, { req }: Meta) => {
-      // Cast req to CustomRequest to access custom properties
       const customReq = req as CustomRequest;
 
-      // Check review ownership before delete
       if (customReq.user!.role === 'user') {
         const review = await Review.findById(val);
         if (!review) {
